@@ -1,0 +1,24 @@
+{
+  "name": "mobile-lms-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mobile LMS - Monorepo containing mobile app, API, and admin frontend",
+  "workspaces": [
+    "apps/api",
+    "apps/frontend"
+  ],
+  "scripts": {
+    "dev:mobile": "cd apps/mobile && npm start",
+    "dev:api": "cd apps/api && npm run start:dev -- -p 3000",
+    "dev:dashboard": "cd apps/frontend && npm run dev",
+    "dev:frontend": "npm run dev:dashboard",
+    "dev:all": "concurrently \"npm run dev:api\" \"npm run dev:dashboard\" \"npm run dev:mobile\"",
+    "install:all": "npm install && cd apps/mobile && npm install && cd ../api && npm install && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "dependencies": {
+    "mongoose": "^8.20.0"
+  }
+}
