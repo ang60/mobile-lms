@@ -24,9 +24,13 @@ export default function LibraryScreen() {
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadContent = async () => {
+  const loadContent = async (isRefresh = false) => {
     try {
-      const data = await contentApi.list(token);
+      if (!isRefresh) {
+        setLoading(true);
+      }
+      // Load immediately with cache, then refresh in background if needed
+      const data = await contentApi.list(token, !isRefresh);
       setContent(data);
     } catch (error) {
       console.error('[LibraryScreen] Failed to load content:', error);
@@ -38,7 +42,13 @@ export default function LibraryScreen() {
 
   useEffect(() => {
     loadContent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadContent(true);
+  };
 
   const subjects = useMemo(() => {
     const uniqueSubjects = Array.from(new Set(content.map((item) => item.subject))).sort();
@@ -53,10 +63,6 @@ export default function LibraryScreen() {
     });
   }, [content, query, selectedSubject]);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadContent();
-  };
 
   const formatPrice = (price: number) => {
     return `KES ${price.toLocaleString()}`;

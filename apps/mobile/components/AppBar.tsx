@@ -1,7 +1,7 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '@/providers/AuthProvider';
+import { Feather } from '@expo/vector-icons';
+import { usePathname, useRouter } from 'expo-router';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type AppBarProps = {
   title?: string;
@@ -69,16 +69,10 @@ export function AppBar({ title, showBack = false, rightAction }: AppBarProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    shadowColor: '#1F2937',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
     paddingTop: 8,
     paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   content: {
     flexDirection: 'row',

@@ -1,9 +1,10 @@
 import { AppBar } from '@/components/AppBar';
 import { contentApi, type ContentItem } from '@/modules/content/services/contentApi';
+import { useAuth } from '@/providers/AuthProvider';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -13,36 +14,69 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const colors = ['#FDE68A', '#DBEAFE', '#FDEAF1', '#D1FAE5', '#FCE7F3'];
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [content, setContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
+  const userName = user?.name || (user?.email ? user.email.split('@')[0] : 'Student');
 
   const loadContent = async (opts?: { isRefresh?: boolean }) => {
     const isRefresh = opts?.isRefresh ?? false;
+    
+    // Cancel previous request if still pending
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
     try {
       if (!isRefresh) {
         setLoading(true);
       }
-      const data = await contentApi.list();
-      setContent(data);
+      // useCache=false on refresh to force fresh data
+      const data = await contentApi.list(undefined, !isRefresh);
+      
+      // Only update state if request wasn't cancelled
+      if (!abortController.signal.aborted) {
+        setContent(data);
+      }
     } catch (error) {
+      // Ignore cancellation errors
+      if (error instanceof Error && error.message === 'Request was cancelled') {
+        return;
+      }
       console.error('[HomeScreen] Failed to load content:', error);
     } finally {
-      if (isRefresh) {
-        setRefreshing(false);
-      } else {
-        setLoading(false);
+      if (!abortController.signal.aborted) {
+        if (isRefresh) {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
       }
     }
   };
 
   useEffect(() => {
     loadContent();
+    
+    // Cleanup: cancel request on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   const featured = useMemo(() => {
@@ -62,7 +96,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <AppBar title="Home" />
       <ScrollView
         style={styles.scrollView}
@@ -76,12 +110,12 @@ export default function HomeScreen() {
           <Feather name="award" size={18} color="#FFD166" />
           <Text style={styles.heroBadgeText}>Unlock all content</Text>
         </View>
-        <Text style={styles.heroTitle}>Hello, Student!</Text>
+        <Text style={styles.heroTitle}>Hello, {userName}!</Text>
         <Text style={styles.heroSubtitle}>Continue your learning journey</Text>
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.heroButton}
-          onPress={() => router.push('/(tabs)/subscription')}
+          onPress={() => router.push('/screens/subscription')}
         >
           <LinearGradient colors={['#FFD166', '#F59E0B']} style={styles.heroButtonInner}>
             <Text style={styles.heroButtonText}>Subscribe Now - KES 999/month</Text>
@@ -116,7 +150,7 @@ export default function HomeScreen() {
               key={item.id}
               style={styles.card}
               activeOpacity={0.7}
-              onPress={() => router.push(`/(tabs)/content/${item.id}`)}
+              onPress={() => router.push(`/screens/content/${item.id}`)}
             >
               <View style={[styles.cardIcon, { backgroundColor: item.color }]}>
                 <Feather name="book" size={22} color="#1F2937" />
@@ -141,7 +175,7 @@ export default function HomeScreen() {
         </View>
       )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

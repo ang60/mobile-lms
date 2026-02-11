@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
-import { Alert, ActivityIndicator } from 'react-native';
+import { AppBar } from '@/components/AppBar';
+import { subscriptionApi, type SubscriptionPlan } from '@/modules/subscription/services/subscriptionApi';
+import { useAuth } from '@/providers/AuthProvider';
 import FeatherIcon from '@expo/vector-icons/Feather';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { subscriptionApi, type SubscriptionPlan } from '@/modules/subscription/services/subscriptionApi';
-import { useAuth } from '@/providers/AuthProvider';
-import { AppBar } from '@/components/AppBar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const benefits = [
   'Access to all revision kits',
@@ -83,7 +83,7 @@ export default function SubscriptionScreen() {
   const isSubscribed = user?.subscription?.status === 'active';
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <AppBar title="Subscription" showBack />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <LinearGradient colors={['#2F4BFF', '#7C3AED']} style={styles.hero}>
@@ -146,7 +146,7 @@ export default function SubscriptionScreen() {
         </>
       )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

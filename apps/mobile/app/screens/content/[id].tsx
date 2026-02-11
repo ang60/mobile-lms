@@ -1,3 +1,10 @@
+import { AppBar } from '@/components/AppBar';
+import { contentApi, type ContentItem } from '@/modules/content/services/contentApi';
+import { subscriptionApi } from '@/modules/subscription/services/subscriptionApi';
+import { useAuth } from '@/providers/AuthProvider';
+import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -8,13 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { contentApi, type ContentItem } from '@/modules/content/services/contentApi';
-import { subscriptionApi } from '@/modules/subscription/services/subscriptionApi';
-import { useAuth } from '@/providers/AuthProvider';
-import { LinearGradient } from 'expo-linear-gradient';
-import { AppBar } from '@/components/AppBar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ContentDetailScreen() {
   const router = useRouter();
@@ -109,7 +110,7 @@ export default function ContentDetailScreen() {
   const hasAccess = isFree || user?.subscription?.status === 'active';
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <AppBar title={content.title} showBack />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
 
@@ -181,7 +182,7 @@ export default function ContentDetailScreen() {
         </View>
       )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
