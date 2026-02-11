@@ -1,10 +1,9 @@
 import { AppBar } from '@/components/AppBar';
 import { contentApi, type ContentItem } from '@/modules/content/services/contentApi';
-import { useAuth } from '@/providers/AuthProvider';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -20,63 +19,31 @@ const colors = ['#FDE68A', '#DBEAFE', '#FDEAF1', '#D1FAE5', '#FCE7F3'];
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
   const [content, setContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  
-  const userName = user?.name || (user?.email ? user.email.split('@')[0] : 'Student');
 
   const loadContent = async (opts?: { isRefresh?: boolean }) => {
     const isRefresh = opts?.isRefresh ?? false;
-    
-    // Cancel previous request if still pending
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    // Create new abort controller for this request
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    
     try {
       if (!isRefresh) {
         setLoading(true);
       }
-      // useCache=false on refresh to force fresh data
-      const data = await contentApi.list(undefined, !isRefresh);
-      
-      // Only update state if request wasn't cancelled
-      if (!abortController.signal.aborted) {
-        setContent(data);
-      }
+      const data = await contentApi.list();
+      setContent(data);
     } catch (error) {
-      // Ignore cancellation errors
-      if (error instanceof Error && error.message === 'Request was cancelled') {
-        return;
-      }
       console.error('[HomeScreen] Failed to load content:', error);
     } finally {
-      if (!abortController.signal.aborted) {
-        if (isRefresh) {
-          setRefreshing(false);
-        } else {
-          setLoading(false);
-        }
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
       }
     }
   };
 
   useEffect(() => {
     loadContent();
-    
-    // Cleanup: cancel request on unmount
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
   }, []);
 
   const featured = useMemo(() => {
@@ -110,7 +77,7 @@ export default function HomeScreen() {
           <Feather name="award" size={18} color="#FFD166" />
           <Text style={styles.heroBadgeText}>Unlock all content</Text>
         </View>
-        <Text style={styles.heroTitle}>Hello, {userName}!</Text>
+        <Text style={styles.heroTitle}>Hello, Student!</Text>
         <Text style={styles.heroSubtitle}>Continue your learning journey</Text>
         <TouchableOpacity
           activeOpacity={0.9}

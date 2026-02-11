@@ -1,9 +1,18 @@
 import { PropsWithChildren, createContext, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { authApi, type AuthUser as AuthUserType } from '@/modules/auth/services/authApi';
+import { authApi } from '@/modules/auth/services/authApi';
 import { ApiError } from '@/utils/api/client';
 
-type AuthUser = AuthUserType | null;
+type AuthUser = {
+  id: string;
+  email: string;
+  name?: string | null;
+  subscription?: {
+    planId: string;
+    status: 'active' | 'inactive' | 'past_due';
+    expiresAt: string;
+  } | null;
+} | null;
 
 type AuthContextValue = {
   user: AuthUser;

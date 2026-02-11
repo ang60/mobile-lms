@@ -1,19 +1,12 @@
 import { apiFetch } from '@/utils/api/client';
 
-export type AuthUser = {
-  id: string;
-  email: string;
-  name?: string | null;
-  subscription?: {
-    planId: string;
-    status: 'active' | 'inactive' | 'past_due';
-    expiresAt: string;
-  } | null;
-};
-
 type AuthResponse = {
   token: string;
-  user: AuthUser;
+  user: {
+    id: string;
+    email: string;
+    name?: string | null;
+  };
 };
 
 export const authApi = {
@@ -28,7 +21,7 @@ export const authApi = {
       body: payload,
     }),
   me: (token: string) =>
-    apiFetch<AuthUser>('/auth/me', {
+    apiFetch<AuthResponse['user']>('/auth/me', {
       method: 'GET',
       token,
     }),

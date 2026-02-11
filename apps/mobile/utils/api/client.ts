@@ -7,7 +7,6 @@ type RequestOptions = {
   headers?: Record<string, string>;
   body?: unknown;
   token?: string | null;
-  signal?: AbortSignal;
 };
 
 export class ApiError extends Error {
@@ -23,7 +22,7 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', headers = {}, body, token, signal } = options;
+  const { method = 'GET', headers = {}, body, token } = options;
   const url = `${BASE_URL}${path}`;
 
   try {
@@ -31,7 +30,6 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     
     const response = await fetch(url, {
       method,
-      signal, // Support request cancellation
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
@@ -42,6 +40,18 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       body: body ? JSON.stringify(body) : undefined,
     });
 
+    // Check if response is HTML (ngrok warning page)
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      const html = await response.text();
+      if (html.includes('ngrok') || html.includes('ERR_NGROK')) {
+        throw new Error(
+          'Ngrok tunnel error: The tunnel may be offline or pointing to the wrong port. ' +
+          'Please check that ngrok is running and pointing to port 3000.'
+        );
+      }
+    }
+
     // Handle 204 No Content
     if (response.status === 204) {
       console.log('[apiFetch] response', { status: response.status, body: null });
@@ -49,37 +59,11 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     }
 
     // Parse response body
-    const contentType = response.headers.get('content-type') || '';
     let responseBody: any;
-    
     try {
-      if (contentType.includes('text/html')) {
-        // Check for ngrok warning page
-        const html = await response.text();
-        if (html.includes('ngrok') || html.includes('ERR_NGROK')) {
-          throw new Error(
-            'Ngrok tunnel error: The tunnel may be offline or pointing to the wrong port. ' +
-            'Please check that ngrok is running and pointing to port 3000.'
-          );
-        }
-        responseBody = html;
-      } else if (contentType.includes('application/json')) {
-        responseBody = await response.json();
-      } else {
-        // Try JSON first, fallback to text
-        const text = await response.text();
-        try {
-          responseBody = text ? JSON.parse(text) : null;
-        } catch {
-          responseBody = text || null;
-        }
-      }
+      const text = await response.text();
+      responseBody = text ? JSON.parse(text) : null;
     } catch (parseError) {
-      // If it's our ngrok error, re-throw it
-      if (parseError instanceof Error && parseError.message.includes('Ngrok tunnel error')) {
-        throw parseError;
-      }
-      console.warn('[apiFetch] Failed to parse response', { url, error: parseError });
       responseBody = null;
     }
 
@@ -117,12 +101,6 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     if (error instanceof ApiError) {
       // Re-throw API errors as-is
       throw error;
-    }
-    
-    // Handle AbortError (request cancelled)
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.log('[apiFetch] request cancelled', { method, url });
-      throw new Error('Request was cancelled');
     }
     
     // Check if it's a network error

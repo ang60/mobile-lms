@@ -34,22 +34,16 @@ const menuItems = [
 ];
 
 export default function ProfileScreen() {
-  const { user, logout, token, isRestoring } = useAuth();
+  const { user, logout, token } = useAuth();
   const router = useRouter();
-  
-  // Don't show fallback values while loading
-  const name = user?.name || (user?.email ? user.email.split('@')[0] : null);
-  const email = user?.email || null;
+  const name = user?.name || user?.email?.split('@')[0] || 'Student';
+  const email = user?.email || 'student@example.com';
   const initials = name
-    ? name
-        .split(' ')
-        .map((part) => part.charAt(0))
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : email
-    ? email.slice(0, 2).toUpperCase()
-    : '?';
+    .split(' ')
+    .map((part) => part.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   const isSubscribed = user?.subscription?.status === 'active';
   const subscriptionExpires = user?.subscription?.expiresAt
@@ -104,22 +98,8 @@ export default function ProfileScreen() {
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
-        {isRestoring ? (
-          <>
-            <Text style={styles.heroName}>Loading...</Text>
-            <Text style={styles.heroEmail}>Please wait</Text>
-          </>
-        ) : user ? (
-          <>
-            <Text style={styles.heroName}>{name || 'User'}</Text>
-            <Text style={styles.heroEmail}>{email}</Text>
-          </>
-        ) : (
-          <>
-            <Text style={styles.heroName}>Not logged in</Text>
-            <Text style={styles.heroEmail}>Please sign in to view your profile</Text>
-          </>
-        )}
+        <Text style={styles.heroName}>{name}</Text>
+        <Text style={styles.heroEmail}>{email}</Text>
         {isSubscribed && !isExpired ? (
           <TouchableOpacity 
             style={styles.planBadge}
