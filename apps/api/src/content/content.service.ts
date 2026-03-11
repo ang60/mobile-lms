@@ -32,17 +32,26 @@ export class ContentService {
     });
   }
 
-  async list() {
-    const items = await this.data.getContent();
+  async list(courseId?: string, sectionId?: string) {
+    const items = sectionId
+      ? await this.data.getContentBySectionId(sectionId)
+      : courseId
+        ? await this.data.getContentByCourseId(courseId)
+        : await this.data.getContent();
     return items.map((item) => ({
       id: item.id,
       title: item.title,
+      description: item.description,
       subject: item.subject,
       price: item.price,
       lessons: item.lessons,
       type: item.type,
       locked: item.price > 0,
       fileSize: item.fileSize,
+      courseId: item.courseId,
+      sectionId: item.sectionId,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
     }));
   }
 

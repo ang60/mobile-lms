@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 import type { ContentType } from '@/data/data.types';
 
 @Schema({ timestamps: true })
@@ -12,6 +12,12 @@ export class ContentEntity {
 
   @Prop({ required: true })
   subject!: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'CourseEntity' })
+  courseId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'SectionEntity' })
+  sectionId?: Types.ObjectId;
 
   @Prop({ required: true, min: 0 })
   price!: number;

@@ -33,6 +33,22 @@ export type ContentType =
   | 'video'
   | 'other';
 
+export interface CourseItem {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SectionItem {
+  id: string;
+  courseId: string;
+  name: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ContentItem {
   id: string;
   title: string;
@@ -42,6 +58,8 @@ export interface ContentItem {
   previewUrl?: string;
   type: ContentType;
   lessons: number;
+  courseId?: string;
+  sectionId?: string;
   fileId?: string;
   fileName?: string;
   fileType?: string;
@@ -65,13 +83,89 @@ export interface CreateContentInput {
   previewUrl?: string;
   type?: ContentType;
   lessons: number;
+  courseId?: string;
+  sectionId?: string;
   fileId?: string;
   fileName?: string;
   fileType?: string;
   fileSize?: number;
 }
 
-export interface UpdateContentInput extends Partial<CreateContentInput> {}
+export interface UpdateContentInput extends Partial<CreateContentInput> {
+  courseId?: string;
+  sectionId?: string;
+}
+
+export interface AssessmentItem {
+  id: string;
+  title: string;
+  courseId?: string;
+  sectionId?: string;
+  courseName: string;
+  sectionName: string;
+  questions: number;
+  timeMinutes: number;
+  difficulty: string;
+  attempts: number;
+  avgScore: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAssessmentInput {
+  title: string;
+  courseId?: string;
+  sectionId?: string;
+  courseName?: string;
+  sectionName?: string;
+  questions: number;
+  timeMinutes: number;
+  difficulty?: string;
+}
+
+export interface QuestionItem {
+  id: string;
+  assessmentId: string;
+  order: number;
+  questionText: string;
+  type: 'mcq' | 'true_false';
+  options: string[];
+  correctIndex: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateQuestionInput {
+  assessmentId: string;
+  order?: number;
+  questionText: string;
+  type?: 'mcq' | 'true_false';
+  options: string[];
+  correctIndex: number;
+}
+
+export interface AttemptItem {
+  id: string;
+  userId: string;
+  assessmentId: string;
+  correctCount: number;
+  totalQuestions: number;
+  scorePercent: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentItem {
+  id: string;
+  userId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  type: string;
+  planId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 
 

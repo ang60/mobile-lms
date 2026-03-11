@@ -1,307 +1,337 @@
-import { AppBar } from '@/components/AppBar';
 import { contentApi, type ContentItem } from '@/modules/content/services/contentApi';
+import { coursesApi, type CourseWithSections, type SectionItem } from '@/modules/courses/services/coursesApi';
+import { useAuth } from '@/providers/AuthProvider';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const colors = ['#FDE68A', '#DBEAFE', '#FDEAF1', '#D1FAE5', '#FCE7F3'];
+function getInitials(title: string) {
+  return title
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function formatDate() {
+  const d = new Date();
+  const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  return `${days[d.getDay()]} - ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [content, setContent] = useState<ContentItem[]>([]);
+  const [coursesWithSections, setCoursesWithSections] = useState<CourseWithSections | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const loadContent = async (opts?: { isRefresh?: boolean }) => {
+  const loadContent = useCallback(async (opts?: { isRefresh?: boolean }) => {
     const isRefresh = opts?.isRefresh ?? false;
     try {
-      if (!isRefresh) {
-        setLoading(true);
-      }
-      const data = await contentApi.list();
-      setContent(data);
-    } catch (error) {
-      console.error('[HomeScreen] Failed to load content:', error);
-    } finally {
-      if (isRefresh) {
-        setRefreshing(false);
+      if (!isRefresh) setLoading(true);
+      const [contentData, coursesData] = await Promise.all([
+        contentApi.list(),
+        coursesApi.list(),
+      ]);
+      setContent(contentData);
+      if (coursesData.length > 0) {
+        const first = await coursesApi.get(coursesData[0].id);
+        setCoursesWithSections(first);
       } else {
-        setLoading(false);
+        setCoursesWithSections(null);
       }
+    } catch (error) {
+      console.error('[HomeScreen]', error);
+    } finally {
+      if (isRefresh) setRefreshing(false);
+      else setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadContent();
-  }, []);
+  }, [loadContent]);
 
-  const featured = useMemo(() => {
-    return content.slice(0, 3).map((item, index) => ({
-      ...item,
-      color: colors[index % colors.length],
-    }));
-  }, [content]);
-
-  const formatPrice = (price: number) => {
-    return `KES ${price.toLocaleString()}`;
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadContent({ isRefresh: true });
-  };
+  const continueReading = useMemo(() => content.slice(0, 4), [content]);
+  const firstName = user?.name?.split(' ')[0] || 'Alex';
+  const sections = coursesWithSections?.sections ?? [];
+  const courseName = coursesWithSections?.name ?? 'Course';
 
   return (
-    <SafeAreaView style={styles.container}>
-      <AppBar title="Home" />
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadContent({ isRefresh: true }); }} />
         }
+        showsVerticalScrollIndicator={false}
       >
-        <LinearGradient colors={['#213FDD', '#142A84']} style={styles.hero}>
-        <View style={styles.heroBadge}>
-          <Feather name="award" size={18} color="#FFD166" />
-          <Text style={styles.heroBadgeText}>Unlock all content</Text>
-        </View>
-        <Text style={styles.heroTitle}>Hello, Student!</Text>
-        <Text style={styles.heroSubtitle}>Continue your learning journey</Text>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.heroButton}
-          onPress={() => router.push('/screens/subscription')}
-        >
-          <LinearGradient colors={['#FFD166', '#F59E0B']} style={styles.heroButtonInner}>
-            <Text style={styles.heroButtonText}>Subscribe Now - KES 999/month</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </LinearGradient>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Revision Kits</Text>
-        <Link href="/(tabs)/library" asChild>
-          <TouchableOpacity>
-            <Text style={styles.sectionAction}>View all</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.date}>{formatDate()}</Text>
+            <Text style={styles.greeting}>
+              {getGreeting()}, {firstName} 👋
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>
+            <Feather name="bell" size={22} color="#0f172a" />
           </TouchableOpacity>
-        </Link>
-      </View>
+        </View>
 
-      {loading ? (
-        <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.loadingText}>Loading content...</Text>
+        <View style={styles.streakCard}>
+          <View style={styles.streakLeft}>
+            <Feather name="zap" size={22} color="#64748b" />
+            <View>
+              <Text style={styles.streakTitle}>7-day reading streak</Text>
+              <Text style={styles.streakSubtitle}>Read 20 min today to keep it going.</Text>
+            </View>
+          </View>
+          <Text style={styles.streakNumber}>7</Text>
         </View>
-      ) : featured.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Feather name="book-open" size={48} color="#CBD5F5" />
-          <Text style={styles.emptyTitle}>No content yet</Text>
-          <Text style={styles.emptySubtitle}>Content will appear here once uploaded</Text>
+
+        <View style={styles.searchBox}>
+          <Feather name="search" size={18} color="#94a3b8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search materials, quizzes...."
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
-      ) : (
-        <View style={styles.list}>
-          {featured.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.card}
-              activeOpacity={0.7}
-              onPress={() => router.push(`/screens/content/${item.id}`)}
-            >
-              <View style={[styles.cardIcon, { backgroundColor: item.color }]}>
-                <Feather name="book" size={22} color="#1F2937" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardDescription}>{item.description}</Text>
-                <View style={styles.cardMetaRow}>
-                  <View style={styles.cardMeta}>
-                    <Feather name="book-open" size={14} color="#6B7280" />
-                    <Text style={styles.cardMetaText}>{item.lessons} lessons</Text>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Continue Reading</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/library')}>
+            <Text style={styles.seeAll}>See all →</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="small" color="#64748b" />
+          </View>
+        ) : continueReading.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          >
+            {continueReading.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.continueCard}
+                activeOpacity={0.8}
+                onPress={() => router.push(`/screens/content/${item.id}`)}
+              >
+                <View style={styles.continueCardTop}>
+                  <View style={styles.continueInitials}>
+                    <Text style={styles.continueInitialsText}>{getInitials(item.title)}</Text>
                   </View>
-                  <View style={styles.cardMeta}>
-                    <Feather name="tag" size={14} color="#6B7280" />
-                    <Text style={styles.cardMetaText}>{item.subject}</Text>
-                  </View>
+                  <Feather name="zap" size={14} color="#94a3b8" />
                 </View>
-                <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+                <Text style={styles.continueTitle} numberOfLines={2}>{item.title}</Text>
+                <Text style={styles.continueCategory}>{item.subject}</Text>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: '32%' }]} />
+                </View>
+                <Text style={styles.progressLabel}>32%</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.emptyContinue}>
+            <Text style={styles.emptyContinueText}>No items in progress</Text>
+          </View>
+        )}
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Sections</Text>
+            <Text style={styles.sectionSubtitle}>Course: {courseName}</Text>
+          </View>
         </View>
-      )}
+        <View style={styles.categoriesGrid}>
+          {sections.length === 0 ? (
+            <View style={styles.sectionPlaceholder}>
+              <Text style={styles.sectionPlaceholderText}>No sections yet</Text>
+              <Text style={styles.sectionPlaceholderSubtext}>Courses and sections are managed in the dashboard</Text>
+            </View>
+          ) : (
+            sections.map((sec) => (
+              <TouchableOpacity
+                key={sec.id}
+                style={styles.categoryCard}
+                activeOpacity={0.8}
+                onPress={() => router.push(`/(tabs)/library?sectionId=${encodeURIComponent(sec.id)}&sectionName=${encodeURIComponent(sec.name)}`)}
+              >
+                <Text style={styles.categoryIcon}>{sec.order || sec.name.slice(0, 1)}</Text>
+                <Text style={styles.categoryName}>{sec.name}</Text>
+                <Text style={styles.categoryCount}>→</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F6FB',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 40,
-  },
-  hero: {
-    marginHorizontal: 18,
-    marginTop: 18,
-    borderRadius: 28,
-    padding: 24,
-  },
-  heroBadge: {
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  scrollView: { flex: 1 },
+  content: { paddingBottom: 32 },
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  date: { fontSize: 12, color: '#64748b', textTransform: 'uppercase' },
+  greeting: { fontSize: 22, fontWeight: '700', color: '#0f172a', marginTop: 4 },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#fff',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginBottom: 16,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  heroBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  heroSubtitle: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 15,
-    marginTop: 6,
-  },
-  heroButton: {
-    marginTop: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  heroButtonInner: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  heroButtonText: {
-    color: '#1A1B52',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  sectionHeader: {
-    marginTop: 28,
-    marginBottom: 16,
-    paddingHorizontal: 24,
+  streakCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  sectionAction: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '600',
-  },
-  list: {
-    paddingHorizontal: 20,
-    gap: 18,
-  },
-  card: {
-    flexDirection: 'row',
-    gap: 16,
-    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
     padding: 18,
-    borderRadius: 20,
-    shadowColor: '#1F2937',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  cardIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  cardDescription: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  cardMetaRow: {
+  streakLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  streakTitle: { fontSize: 15, fontWeight: '600', color: '#0f172a' },
+  streakSubtitle: { fontSize: 13, color: '#64748b', marginTop: 2 },
+  streakNumber: { fontSize: 28, fontWeight: '700', color: '#475569' },
+  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 10,
+    gap: 10,
+    marginHorizontal: 20,
+    marginTop: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  cardMeta: {
+  searchInput: { flex: 1, fontSize: 15, color: '#0f172a', padding: 0 },
+  sectionHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 4,
+    paddingHorizontal: 20,
+    marginTop: 28,
+    marginBottom: 14,
   },
-  cardMetaText: {
-    fontSize: 12,
-    color: '#6B7280',
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
+  sectionSubtitle: { fontSize: 13, color: '#64748b', marginTop: 2 },
+  seeAll: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+  horizontalList: { paddingHorizontal: 20, gap: 14, paddingBottom: 8 },
+  continueCard: {
+    width: 160,
+    padding: 14,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  cardPrice: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2563EB',
+  continueCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  continueInitials: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueInitialsText: { fontSize: 12, fontWeight: '700', color: '#475569' },
+  continueTitle: { fontSize: 14, fontWeight: '600', color: '#0f172a', marginTop: 10 },
+  continueCategory: { fontSize: 12, color: '#64748b', marginTop: 4 },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 3,
     marginTop: 10,
+    overflow: 'hidden',
   },
-  loadingState: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+  progressFill: { height: '100%', backgroundColor: '#94a3b8', borderRadius: 3 },
+  progressLabel: { fontSize: 11, color: '#64748b', marginTop: 4 },
+  emptyContinue: { paddingHorizontal: 20, paddingVertical: 24 },
+  emptyContinueText: { fontSize: 14, color: '#64748b' },
+  loadingState: { paddingHorizontal: 20, paddingVertical: 24, alignItems: 'center' },
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 20,
     gap: 12,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  emptyState: {
-    paddingVertical: 60,
-    paddingHorizontal: 40,
+  categoryCard: {
+    width: '30%',
+    minWidth: 100,
+    flexGrow: 1,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 12,
+  categoryIcon: { fontSize: 24, fontWeight: '700', color: '#64748b' },
+  categoryName: { fontSize: 13, fontWeight: '600', color: '#0f172a', marginTop: 8 },
+  categoryCount: { fontSize: 12, color: '#64748b', marginTop: 4 },
+  sectionPlaceholder: {
+    flex: 1,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
+  sectionPlaceholderText: { fontSize: 15, fontWeight: '600', color: '#64748b' },
+  sectionPlaceholderSubtext: { fontSize: 13, color: '#94a3b8', marginTop: 6 },
 });

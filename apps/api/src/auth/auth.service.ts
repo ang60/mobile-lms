@@ -49,5 +49,10 @@ export class AuthService {
   getPublicUser(user: User) {
     return this.data.toPublicUser(user);
   }
+
+  async listUsersForAdmin() {
+    const users = await this.data.listUsers();
+    return users.map((u) => this.data.toPublicUser(u));
+  }
 }
 

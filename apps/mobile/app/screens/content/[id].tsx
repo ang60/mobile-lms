@@ -2,13 +2,17 @@ import { AppBar } from '@/components/AppBar';
 import { contentApi, type ContentItem } from '@/modules/content/services/contentApi';
 import { subscriptionApi } from '@/modules/subscription/services/subscriptionApi';
 import { useAuth } from '@/providers/AuthProvider';
+import { getBaseUrl } from '@/utils/api/client';
 import { Feather } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +28,10 @@ export default function ContentDetailScreen() {
   const [content, setContent] = useState<ContentItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
+  const [opening, setOpening] = useState(false);
+
+  // Prevent screenshots and screen recording while viewing content (Android; iOS has OS limits)
+  usePreventScreenCapture();
 
   useEffect(() => {
     if (id) {
@@ -67,11 +75,38 @@ export default function ContentDetailScreen() {
       Alert.alert('Success', 'Subscription activated! You now have access to all content.', [
         { text: 'OK', onPress: () => loadContent() },
       ]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[ContentDetail] Subscription failed:', error);
-      Alert.alert('Error', error?.message || 'Failed to activate subscription');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to activate subscription');
     } finally {
       setSubscribing(false);
+    }
+  };
+
+  const handleViewContent = async () => {
+    if (!content?.id || !token) return;
+    try {
+      setOpening(true);
+      const url = `${getBaseUrl()}/content/${content.id}/file`;
+      const ext = content.type === 'epub' ? 'epub' : 'pdf';
+      const fileUri = `${FileSystem.cacheDirectory}content_${content.id}.${ext}`;
+      await FileSystem.downloadAsync(url, fileUri, {
+        headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'any' },
+      });
+      const canOpen = await Linking.canOpenURL(fileUri);
+      if (canOpen) {
+        await Linking.openURL(fileUri);
+      } else {
+        Alert.alert(
+          'Open content',
+          'File downloaded. Open it from your device files or use another app that can open PDF/EPUB.',
+        );
+      }
+    } catch (err) {
+      console.error('[ContentDetail] Open content failed:', err);
+      Alert.alert('Error', (err instanceof Error ? err.message : 'Failed to open content. Try again.'));
+    } finally {
+      setOpening(false);
     }
   };
 
@@ -143,14 +178,18 @@ export default function ContentDetailScreen() {
         <TouchableOpacity
           style={styles.actionButton}
           activeOpacity={0.8}
-          onPress={() => {
-            // TODO: Open/download content file
-            Alert.alert('Coming Soon', 'Content viewer will be available soon');
-          }}
+          onPress={handleViewContent}
+          disabled={opening}
         >
           <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.actionButtonInner}>
-            <Feather name="download" size={20} color="#FFFFFF" />
-            <Text style={styles.actionButtonText}>View Content</Text>
+            {opening ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Feather name="download" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>View Content</Text>
+              </>
+            )}
           </LinearGradient>
         </TouchableOpacity>
       ) : (

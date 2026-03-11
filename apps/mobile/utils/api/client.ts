@@ -1,4 +1,18 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+import { Platform } from 'react-native';
+
+const DEFAULT_PORT = '3000';
+
+/** API base URL. On Android emulator, localhost points to the emulator — use 10.0.2.2 to reach the host. */
+export function getBaseUrl(): string {
+  const isAndroid = Platform.OS === 'android';
+  let base =
+    process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '') ||
+    (isAndroid ? `http://10.0.2.2:${DEFAULT_PORT}` : `http://localhost:${DEFAULT_PORT}`);
+  if (isAndroid && (base.includes('localhost') || base.includes('127.0.0.1'))) {
+    base = base.replace(/localhost|127\.0\.0\.1/g, '10.0.2.2');
+  }
+  return base;
+}
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -23,7 +37,7 @@ export class ApiError extends Error {
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', headers = {}, body, token } = options;
-  const url = `${BASE_URL}${path}`;
+  const url = `${getBaseUrl()}${path}`;
 
   try {
     console.log('[apiFetch] request', { method, url, body: body ? '***' : undefined });

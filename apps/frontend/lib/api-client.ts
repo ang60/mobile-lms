@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export class ApiError extends Error {
   constructor(
@@ -50,8 +50,8 @@ async function apiRequest<T>(
       if (text.includes('ngrok') || text.includes('Visit Site')) {
         const helpMessage = `Ngrok warning page detected. Solutions:
 1. Visit ${url} in your browser and click "Visit Site", then refresh this page
-2. Restart ngrok with: ngrok http 3001 --host-header=rewrite
-3. Use localhost: Update .env.local with NEXT_PUBLIC_API_URL=http://localhost:3001`;
+2. Restart ngrok with: ngrok http 3000 --host-header=rewrite
+3. Use localhost: Update .env.local with NEXT_PUBLIC_API_URL=http://localhost:3000`;
         
         throw new ApiError(
           helpMessage,
@@ -69,7 +69,7 @@ async function apiRequest<T>(
 
     if (!response.ok) {
       // Try to parse as JSON, but handle HTML responses gracefully
-      let errorData = {};
+      let errorData: Record<string, unknown> = {};
       try {
         // Check if it's HTML
         if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
@@ -88,8 +88,9 @@ async function apiRequest<T>(
         console.error('[API Request] Failed to parse error response:', parseError);
       }
       
+      const message = typeof errorData.message === "string" ? errorData.message : `API request failed: ${response.statusText}`;
       throw new ApiError(
-        errorData.message || `API request failed: ${response.statusText}`,
+        message,
         response.status,
         errorData,
       );
@@ -195,8 +196,8 @@ export const apiClient = {
         if (text.includes('ngrok') || text.includes('Visit Site')) {
           const helpMessage = `Ngrok warning page detected. Solutions:
 1. Visit ${url} in your browser and click "Visit Site", then try uploading again
-2. Restart ngrok with: ngrok http 3001 --host-header=rewrite
-3. Use localhost: Update .env.local with NEXT_PUBLIC_API_URL=http://localhost:3001`;
+2. Restart ngrok with: ngrok http 3000 --host-header=rewrite
+3. Use localhost: Update .env.local with NEXT_PUBLIC_API_URL=http://localhost:3000`;
           
           throw new ApiError(
             helpMessage,
@@ -214,7 +215,7 @@ export const apiClient = {
 
       if (!response.ok) {
         // Try to parse as JSON, but handle HTML responses gracefully
-        let errorData = {};
+        let errorData: Record<string, unknown> = {};
         try {
           // Check if it's HTML
           if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
@@ -232,8 +233,9 @@ export const apiClient = {
           console.error('[API Upload] Failed to parse error response:', parseError);
         }
         
+        const message = typeof errorData.message === "string" ? errorData.message : `API request failed: ${response.statusText}`;
         throw new ApiError(
-          errorData.message || `API request failed: ${response.statusText}`,
+          message,
           response.status,
           errorData,
         );
@@ -272,7 +274,7 @@ export const apiClient = {
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
         errorMessage = `Cannot connect to API server at ${API_BASE_URL}. Please check:
 1. Is the API server running? (cd apps/api && npm run start:dev)
-2. Is ngrok tunnel active? (Check if ngrok is running and pointing to port 3001)
+2. Is ngrok tunnel active? (Check if ngrok is running and pointing to port 3000)
 3. Is the ngrok URL correct in .env.local? (NEXT_PUBLIC_API_URL=${API_BASE_URL})
 4. Try accessing ${API_BASE_URL}/content in your browser to verify the server is reachable`;
       } else {

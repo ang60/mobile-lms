@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, Post, Body } from '@nestjs/common';
+import { Controller, Get, Headers, Post, Body, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -34,6 +34,19 @@ export class AuthController {
   async me(@Headers('authorization') authHeader?: string) {
     const user = await this.authService.getUserFromToken(extractToken(authHeader));
     return this.authService.getPublicUser(user);
+  }
+
+  @Get('users')
+  async listUsers(@Headers('authorization') authHeader?: string) {
+    const token = extractToken(authHeader);
+    if (!token) {
+      throw new UnauthorizedException('Admin token required.');
+    }
+    const user = await this.authService.getUserFromToken(token);
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Only admins can list users.');
+    }
+    return this.authService.listUsersForAdmin();
   }
 }
 

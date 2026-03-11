@@ -6,13 +6,14 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 type AppBarProps = {
   title?: string;
   showBack?: boolean;
+  onBackPress?: () => void;
   rightAction?: {
     icon: string;
     onPress: () => void;
   };
 };
 
-export function AppBar({ title, showBack = false, rightAction }: AppBarProps) {
+export function AppBar({ title, showBack = false, onBackPress, rightAction }: AppBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
@@ -35,7 +36,7 @@ export function AppBar({ title, showBack = false, rightAction }: AppBarProps) {
       <View style={styles.content}>
         {showBack ? (
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={onBackPress ?? (() => router.back())}
             style={styles.backButton}
             activeOpacity={0.7}
           >

@@ -7,48 +7,56 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const tint = '#64748b'; // neutral slate for tab icon
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: tint,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          backgroundColor: "#ffffff",
-        },  
+          backgroundColor: '#ffffff',
+          borderTopColor: '#e2e8f0',
+        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarActiveTintColor: "#4F46E5",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="library"
         options={{
           title: 'Library',
-          tabBarActiveTintColor: "#4F46E5",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="books.vertical.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="books.vertical.fill" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="subscription"
+        name="read"
         options={{
-          title: 'Subscription',
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="creditcard.fill" color={color} />,
+          title: 'Read',
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="book.fill" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="quiz"
         options={{
-          title: 'Profile',
-          tabBarActiveTintColor: "#4F46E5",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.circle.fill" color={color} />,
+          title: 'Quiz',
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="doc.text.fill" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="me"
+        options={{
+          title: 'Me',
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.circle.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
 }

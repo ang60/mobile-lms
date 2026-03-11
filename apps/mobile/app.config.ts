@@ -25,12 +25,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
+    // Allow HTTP (cleartext) so the app can reach the dev API at http://10.0.2.2:3000
+    usesCleartextTraffic: true,
   },
   web: {
     output: 'static',
     favicon: './assets/images/favicon.png',
   },
   plugins: [
+    './plugins/withAndroidCleartext.js',
     'expo-router',
     [
       'expo-splash-screen',

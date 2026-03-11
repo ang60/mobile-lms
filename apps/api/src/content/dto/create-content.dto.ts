@@ -28,6 +28,14 @@ export class CreateContentDto {
   @IsString()
   type?: ContentType;
 
+  @IsOptional()
+  @IsString()
+  courseId?: string;
+
+  @IsOptional()
+  @IsString()
+  sectionId?: string;
+
   @Type(() => Number)
   @IsNumber()
   @IsPositive()

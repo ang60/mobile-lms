@@ -1,111 +1,149 @@
-import { BarChart3, Brain, Database, TimerReset } from "lucide-react";
+"use client";
+
+import { adminApi, type AnalyticsData } from "@/lib/api/admin";
+import { BarChart3, Brain, Database, TrendingUp, Users, BookOpen, Award } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+
+function formatDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 export default function AnalyticsPage() {
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await adminApi.getAnalytics();
+      setData(res);
+    } catch (e) {
+      toast.error("Failed to load analytics");
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-3">
-        <h2 className="text-3xl font-bold text-slate-900">
-          Analytics & Insights
-        </h2>
+        <h2 className="text-3xl font-bold text-slate-900">Analytics & Insights</h2>
         <p className="max-w-2xl text-base font-medium text-slate-600">
-          Connect your favourite BI tools, automate KPI delivery, and monitor
-          engagement cycles alongside revenue metrics. Built for data-driven
-          academic teams.
+          Platform KPIs, quiz engagement, and revenue. Data updates as students take assessments and subscribe.
         </p>
       </header>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-500 p-8 text-white shadow-sm">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-xl space-y-4">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-blue-100">
-              <BarChart3 className="size-3.5" />
-              Power BI integration
-            </span>
-            <h3 className="text-3xl font-bold leading-tight text-white">
-              Two-way sync your CPA data warehouse with Power BI in minutes.
-            </h3>
-            <p className="text-blue-100/80">
-              Stream cohort activity, subscription revenue, and content
-              completion metrics into your BI dashboards. Keep finance, product,
-              and academics aligned with a single source of truth.
-            </p>
-            <div className="flex gap-3 pt-2">
-              <button className="inline-flex h-11 items-center justify-center rounded-xl bg-white px-5 text-sm font-semibold text-blue-600 shadow-sm transition hover:bg-slate-100">
-                Open Power BI connector
-              </button>
-              <button className="inline-flex h-11 items-center justify-center rounded-xl border border-white/40 px-5 text-sm font-semibold text-white transition hover:bg-white/10">
-                View API docs
-              </button>
-            </div>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <Users className="size-5 text-slate-600" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Users</span>
           </div>
-          <div className="grid gap-5 rounded-xl bg-white/10 p-6 text-sm font-medium text-white backdrop-blur-md md:grid-cols-2">
-            <div className="rounded-xl bg-white/10 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-blue-100/80">
-                Sync status
-              </p>
-              <p className="mt-2 text-lg font-bold text-white">Active</p>
-              <p className="text-xs text-blue-100/70">Updated 2 hours ago</p>
-            </div>
-            <div className="rounded-xl bg-white/10 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-blue-100/80">
-                Dataset size
-              </p>
-              <p className="mt-2 text-lg font-bold text-white">3.2M rows</p>
-              <p className="text-xs text-blue-100/70">9 connected sources</p>
-            </div>
-            <div className="rounded-xl bg-white/10 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-blue-100/80">
-                Report latency
-              </p>
-              <p className="mt-2 text-lg font-bold text-white">15 min</p>
-              <p className="text-xs text-blue-100/70">Refresh cycle</p>
-            </div>
-            <div className="rounded-xl bg-white/10 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-blue-100/80">
-                Forecast accuracy
-              </p>
-              <p className="mt-2 text-lg font-bold text-white">92%</p>
-              <p className="text-xs text-blue-100/70">Next-quarter revenue</p>
-            </div>
-          </div>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{loading ? "—" : data?.totalUsers ?? 0}</p>
         </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <BookOpen className="size-5 text-slate-600" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Content</span>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{loading ? "—" : data?.totalContent ?? 0}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <Award className="size-5 text-slate-600" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Quiz attempts</span>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{loading ? "—" : data?.totalAttempts ?? 0}</p>
+          <p className="mt-1 text-sm text-slate-500">Pass rate (≥70%): {loading ? "—" : `${data?.passRatePercent ?? 0}%`}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <TrendingUp className="size-5 text-slate-600" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Revenue (MTD)</span>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {loading ? "—" : `KES ${(data?.revenueMonth ?? 0).toLocaleString()}`}
+          </p>
+          <p className="mt-1 text-sm text-slate-500">Total: KES {(data?.revenueTotal ?? 0).toLocaleString()}</p>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-6 py-4">
+          <h3 className="text-lg font-bold text-slate-900">Recent quiz attempts</h3>
+          <p className="text-sm text-slate-500">Latest 10 submitted attempts</p>
+        </div>
+        {loading ? (
+          <div className="px-6 py-12 text-center text-sm text-slate-500">Loading...</div>
+        ) : !data?.recentAttempts?.length ? (
+          <div className="px-6 py-12 text-center text-sm text-slate-500">No attempts yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="px-6 py-3">Score</th>
+                  <th className="px-6 py-3">Correct</th>
+                  <th className="px-6 py-3">Assessment</th>
+                  <th className="px-6 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.recentAttempts.map((a) => (
+                  <tr key={a.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-3 font-medium text-slate-900">{a.scorePercent}%</td>
+                    <td className="px-6 py-3 text-slate-600">{a.correctCount} / {a.totalQuestions}</td>
+                    <td className="px-6 py-3 text-slate-600">{a.assessmentId}</td>
+                    <td className="px-6 py-3 text-slate-600">{formatDate(a.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="grid gap-6 md:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <Database className="size-5 text-blue-600" />
-            <h3 className="text-base font-bold text-slate-900">
-              Data orchestration
-            </h3>
+            <h3 className="text-base font-bold text-slate-900">Data</h3>
           </div>
           <p className="mt-3 text-sm text-slate-500">
-            Forward curated datasets into Snowflake or BigQuery, complete with
-            cohort, device, and payment segmentation.
+            All metrics are derived from users, content, quiz attempts, and subscription payments in this platform.
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <TimerReset className="size-5 text-blue-600" />
-            <h3 className="text-base font-bold text-slate-900">
-              Real-time triggers
-            </h3>
+            <BarChart3 className="size-5 text-blue-600" />
+            <h3 className="text-base font-bold text-slate-900">Pass rate</h3>
           </div>
           <p className="mt-3 text-sm text-slate-500">
-            Automate outreach when students fall behind in revision or when a
-            high-value customer subscription is about to lapse.
+            Pass rate is the share of quiz attempts with score ≥ 70%. It updates as students submit attempts.
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <Brain className="size-5 text-blue-600" />
-            <h3 className="text-base font-bold text-slate-900">
-              Predictive insights
-            </h3>
+            <h3 className="text-base font-bold text-slate-900">Revenue</h3>
           </div>
           <p className="mt-3 text-sm text-slate-500">
-            Surface churn risk and cross-sell opportunities using success scores
-            derived from engagement patterns.
+            Revenue is recorded when a user activates a subscription plan. Connect payments for more detail.
           </p>
         </div>
       </section>

@@ -1,35 +1,50 @@
+import { contentApi, type ContentItem } from '@/modules/content/services/contentApi';
+import { useAuth } from '@/providers/AuthProvider';
+import { Feather } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { contentApi, type ContentItem } from '@/modules/content/services/contentApi';
-import { useAuth } from '@/providers/AuthProvider';
-import { AppBar } from '@/components/AppBar';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+function getInitials(title: string) {
+  return title
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+const cardColors = ['#e2e8f0', '#cbd5e1', '#f1f5f9', '#e2e8f0', '#cbd5e1', '#f1f5f9'];
 
 export default function LibraryScreen() {
   const router = useRouter();
   const { token } = useAuth();
+  const { sectionId, sectionName } = useLocalSearchParams<{ sectionId?: string; sectionName?: string }>();
   const [content, setContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [refreshing, setRefreshing] = useState(false);
 
   const loadContent = async () => {
     try {
-      const data = await contentApi.list(token);
+      const data = await contentApi.list({
+        token,
+        ...(sectionId ? { sectionId } : {}),
+      });
       setContent(data);
     } catch (error) {
-      console.error('[LibraryScreen] Failed to load content:', error);
+      console.error('[LibraryScreen]', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -38,268 +53,230 @@ export default function LibraryScreen() {
 
   useEffect(() => {
     loadContent();
-  }, [token]);
+  }, [token, sectionId]);
 
-  const subjects = useMemo(() => {
-    const uniqueSubjects = Array.from(new Set(content.map((item) => item.subject))).sort();
-    return ['All', ...uniqueSubjects];
+  const categories = useMemo(() => {
+    const subs = Array.from(new Set(content.map((c) => c.subject))).sort();
+    return ['All', ...subs];
   }, [content]);
 
   const filtered = useMemo(() => {
     return content.filter((item) => {
-      const matchesSubject = selectedSubject === 'All' || item.subject === selectedSubject;
-      const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
-      return matchesSubject && matchesQuery;
+      const matchCat = selectedCategory === 'All' || item.subject === selectedCategory;
+      const matchQuery = item.title.toLowerCase().includes(query.toLowerCase());
+      return matchCat && matchQuery;
     });
-  }, [content, query, selectedSubject]);
+  }, [content, query, selectedCategory]);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadContent();
-  };
+  const startedCount = Math.min(4, filtered.length);
+  const subtitle = `${filtered.length} materials - ${startedCount} started`;
 
-  const formatPrice = (price: number) => {
-    return `KES ${price.toLocaleString()}`;
+  const renderItem = ({ item, index }: { item: ContentItem; index: number }) => {
+    const progress = (index % 3 === 0) ? 60 : (index % 3 === 1) ? null : 'completed';
+    const isLocked = !token && index % 4 === 1;
+
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.8}
+        onPress={() => {
+          if (isLocked) return;
+          router.push(`/screens/content/${item.id}`);
+        }}
+      >
+        <View style={[styles.cardIcon, { backgroundColor: cardColors[index % cardColors.length] }]}>
+          <Text style={styles.cardInitials}>{getInitials(item.title)}</Text>
+        </View>
+        <View style={styles.cardBody}>
+          <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+          <View style={styles.cardMeta}>
+            <View style={styles.categoryTag}>
+              <Text style={styles.categoryTagText}>{item.subject}</Text>
+            </View>
+            <Text style={styles.pagesText}>{item.lessons}pp</Text>
+            <Text style={styles.ratingText}>★ 4.5</Text>
+          </View>
+          {progress === 'completed' ? (
+            <Text style={styles.completedText}>✓ Completed</Text>
+          ) : isLocked ? (
+            <TouchableOpacity
+              style={styles.unlockButton}
+              activeOpacity={0.8}
+              onPress={() => router.push('/screens/subscription')}
+            >
+              <Text style={styles.unlockButtonText}>Unlock - KES {item.price}</Text>
+            </TouchableOpacity>
+          ) : progress !== null ? (
+            <View style={styles.progressRow}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${progress}%` }]} />
+              </View>
+              <Text style={styles.progressPct}>{progress}%</Text>
+            </View>
+          ) : null}
+        </View>
+        {!isLocked && progress !== 'completed' && (
+          <Feather name="zap" size={18} color="#94a3b8" style={styles.flameIcon} />
+        )}
+      </TouchableOpacity>
+    );
   };
 
   return (
-    <View style={styles.container}>
-      <AppBar title="Library" />
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>My Library</Text>
-        <Text style={styles.subtitle}>Access the kits you have unlocked</Text>
-      </View>
-
-      <View style={styles.searchBox}>
-        <Feather name="search" size={18} color="#9CA3AF" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search your revision kits"
-          value={query}
-          onChangeText={setQuery}
-        />
-      </View>
-
-      <View style={styles.filters}>
-        {subjects.map((subject) => (
-          <TouchableOpacity
-            key={subject}
-            style={[
-              styles.filterChip,
-              selectedSubject === subject && styles.filterChipActive,
-            ]}
-            onPress={() => setSelectedSubject(subject)}
-          >
-            <Text
-              style={[
-                styles.filterLabel,
-                selectedSubject === subject && styles.filterLabelActive,
-              ]}
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>{sectionName ? `${sectionName}` : 'My Library'}</Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
+          </View>
+          {sectionId ? (
+            <TouchableOpacity
+              onPress={() => router.replace('/(tabs)/library')}
+              style={styles.clearFilterButton}
+              activeOpacity={0.8}
             >
-              {subject}
+              <Text style={styles.clearFilterText}>All</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}
+        style={styles.filtersScroll}
+      >
+        {categories.map((cat) => (
+          <TouchableOpacity
+            key={cat}
+            style={[styles.filterChip, selectedCategory === cat && styles.filterChipActive]}
+            onPress={() => setSelectedCategory(cat)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.filterLabel, selectedCategory === cat && styles.filterLabelActive]}>
+              {cat}
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {loading ? (
         <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.loadingText}>Loading content...</Text>
+          <ActivityIndicator size="large" color="#64748b" />
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.emptyState}>
-          <Feather name="book-open" size={48} color="#CBD5F5" />
+          <Feather name="book-open" size={48} color="#94a3b8" />
           <Text style={styles.emptyTitle}>
-            {content.length === 0 ? 'No content yet' : 'No matching content'}
+            {content.length === 0 ? 'No content yet' : 'No matching materials'}
           </Text>
           <Text style={styles.emptySubtitle}>
             {content.length === 0
-              ? 'Content will appear here once uploaded'
-              : 'Try adjusting your search or filters'}
+              ? 'Content will appear here once available'
+              : 'Try a different filter or search'}
           </Text>
-          {content.length === 0 && (
-            <TouchableOpacity
-              style={styles.emptyButton}
-              activeOpacity={0.9}
-              onPress={() => router.push('/(tabs)/subscription')}
-            >
-              <Text style={styles.emptyButtonText}>Get Premium</Text>
-            </TouchableOpacity>
-          )}
         </View>
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
+          renderItem={renderItem}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.card}
-              activeOpacity={0.7}
-              onPress={() => router.push(`/(tabs)/content/${item.id}`)}
-            >
-              <View style={styles.cardIcon}>
-                <Feather name="book" size={20} color="#4F46E5" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardSubject}>{item.subject}</Text>
-              </View>
-              <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
-            </TouchableOpacity>
-          )}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadContent(); }} />
+          }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F6FB',
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  title: { fontSize: 24, fontWeight: '700', color: '#0f172a' },
+  subtitle: { marginTop: 4, fontSize: 14, color: '#64748b' },
+  clearFilterButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#e2e8f0',
   },
-  header: {
-    paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 16,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  subtitle: {
-    marginTop: 6,
-    color: '#6B7280',
-  },
-  searchBox: {
-    marginHorizontal: 22,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    shadowColor: '#1F2937',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#111827',
-  },
+  clearFilterText: { fontSize: 13, fontWeight: '600', color: '#475569' },
+  filtersScroll: { maxHeight: 44 },
   filters: {
-    marginHorizontal: 22,
-    marginTop: 18,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
   },
   filterChip: {
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#e2e8f0',
   },
-  filterChipActive: {
-    backgroundColor: '#4F46E5',
-  },
-  filterLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4B5563',
-  },
-  filterLabelActive: {
-    color: '#FFFFFF',
-  },
-  loadingState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    gap: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  emptyButton: {
-    marginTop: 6,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 999,
-  },
-  emptyButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  listContent: {
-    paddingHorizontal: 22,
-    paddingTop: 20,
-    paddingBottom: 40,
-    gap: 14,
-  },
+  filterChipActive: { backgroundColor: '#475569' },
+  filterLabel: { fontSize: 13, fontWeight: '600', color: '#64748b' },
+  filterLabelActive: { color: '#fff' },
+  loadingState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: '#64748b' },
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40, gap: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#334155' },
+  emptySubtitle: { fontSize: 14, color: '#64748b', textAlign: 'center' },
+  listContent: { paddingHorizontal: 20, paddingBottom: 32, gap: 14 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 18,
-    shadowColor: '#1F2937',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 3,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   cardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#EEF2FF',
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+  cardInitials: { fontSize: 14, fontWeight: '700', color: '#475569' },
+  cardBody: { flex: 1, marginLeft: 14 },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#0f172a' },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  categoryTag: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  cardSubject: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
+  categoryTagText: { fontSize: 12, fontWeight: '500', color: '#475569' },
+  pagesText: { fontSize: 12, color: '#64748b' },
+  ratingText: { fontSize: 12, color: '#64748b' },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  progressBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 3,
+    overflow: 'hidden',
   },
-  cardPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#2563EB',
+  progressFill: { height: '100%', backgroundColor: '#94a3b8', borderRadius: 3 },
+  progressPct: { fontSize: 12, color: '#64748b' },
+  completedText: { marginTop: 8, fontSize: 13, fontWeight: '600', color: '#475569' },
+  unlockButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    backgroundColor: '#475569',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
+  unlockButtonText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  flameIcon: { marginLeft: 8 },
 });
-

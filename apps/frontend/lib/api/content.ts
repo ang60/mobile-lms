@@ -8,11 +8,13 @@ export interface ContentItem {
   description: string;
   subject: string;
   price: number;
-  previewUrl: string;
+  previewUrl?: string;
   type: ContentType;
   lessons: number;
-  createdAt: string;
-  updatedAt: string;
+  courseId?: string;
+  sectionId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateContentDto {
@@ -23,13 +25,19 @@ export interface CreateContentDto {
   previewUrl?: string;
   type: ContentType;
   lessons: number;
+  courseId?: string;
+  sectionId?: string;
 }
 
 export type UpdateContentDto = Partial<CreateContentDto>;
 
 export const contentApi = {
-  list: async (): Promise<ContentItem[]> => {
-    return apiClient.get<ContentItem[]>('/content');
+  list: async (params?: { courseId?: string; sectionId?: string }): Promise<ContentItem[]> => {
+    const search = new URLSearchParams();
+    if (params?.courseId) search.set('courseId', params.courseId);
+    if (params?.sectionId) search.set('sectionId', params.sectionId);
+    const qs = search.toString();
+    return apiClient.get<ContentItem[]>(qs ? `/content?${qs}` : '/content');
   },
 
   get: async (id: string): Promise<ContentItem> => {

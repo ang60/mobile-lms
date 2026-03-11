@@ -3,8 +3,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AdminModule } from './admin/admin.module';
+import { AssessmentsModule } from './assessments/assessments.module';
 import { AuthModule } from './auth/auth.module';
 import { ContentModule } from './content/content.module';
+import { CoursesModule } from './courses/courses.module';
 import { DataModule } from './data/data.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 
@@ -31,7 +34,10 @@ import { SubscriptionModule } from './subscription/subscription.module';
     }),
     DataModule,
     AuthModule,
+    AdminModule,
     ContentModule,
+    CoursesModule,
+    AssessmentsModule,
     SubscriptionModule,
   ],
   controllers: [AppController],

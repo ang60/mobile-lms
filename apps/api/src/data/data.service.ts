@@ -3,10 +3,18 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { v4 as uuid } from 'uuid';
 import {
+  AssessmentItem,
+  AttemptItem,
   ContentItem,
+  CourseItem,
   ContentType,
+  CreateAssessmentInput,
   CreateContentInput,
+  CreateQuestionInput,
+  PaymentItem,
+  QuestionItem,
   Role,
+  SectionItem,
   Subscription,
   SubscriptionPlan,
   UpdateContentInput,
@@ -15,6 +23,12 @@ import {
 import { UserDocument, UserEntity } from './schemas/user.schema';
 import { ContentDocument, ContentEntity } from './schemas/content.schema';
 import { TokenDocument, TokenEntity } from './schemas/token.schema';
+import { CourseDocument, CourseEntity } from './schemas/course.schema';
+import { SectionDocument, SectionEntity } from './schemas/section.schema';
+import { AssessmentDocument, AssessmentEntity } from './schemas/assessment.schema';
+import { QuestionDocument, QuestionEntity } from './schemas/question.schema';
+import { AttemptDocument, AttemptEntity } from './schemas/attempt.schema';
+import { PaymentDocument, PaymentEntity } from './schemas/payment.schema';
 
 @Injectable()
 export class DataService implements OnModuleInit {
@@ -27,10 +41,17 @@ export class DataService implements OnModuleInit {
     @InjectModel(UserEntity.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(ContentEntity.name) private readonly contentModel: Model<ContentDocument>,
     @InjectModel(TokenEntity.name) private readonly tokenModel: Model<TokenDocument>,
+    @InjectModel(CourseEntity.name) private readonly courseModel: Model<CourseDocument>,
+    @InjectModel(SectionEntity.name) private readonly sectionModel: Model<SectionDocument>,
+    @InjectModel(AssessmentEntity.name) private readonly assessmentModel: Model<AssessmentDocument>,
+    @InjectModel(QuestionEntity.name) private readonly questionModel: Model<QuestionDocument>,
+    @InjectModel(AttemptEntity.name) private readonly attemptModel: Model<AttemptDocument>,
+    @InjectModel(PaymentEntity.name) private readonly paymentModel: Model<PaymentDocument>,
   ) {}
 
   async onModuleInit() {
     await this.ensureAdminUser();
+    await this.ensureSeedCourses();
     await this.ensureSeedContent();
   }
 
@@ -55,6 +76,26 @@ export class DataService implements OnModuleInit {
     };
   }
 
+  private toCourse(doc: CourseDocument): CourseItem {
+    return {
+      id: doc.id,
+      name: doc.name,
+      createdAt: doc.createdAt?.toISOString() ?? new Date().toISOString(),
+      updatedAt: doc.updatedAt?.toISOString() ?? new Date().toISOString(),
+    };
+  }
+
+  private toSection(doc: SectionDocument): SectionItem {
+    return {
+      id: doc.id,
+      courseId: doc.courseId?.toString() ?? '',
+      name: doc.name,
+      order: doc.order ?? 0,
+      createdAt: doc.createdAt?.toISOString() ?? new Date().toISOString(),
+      updatedAt: doc.updatedAt?.toISOString() ?? new Date().toISOString(),
+    };
+  }
+
   private toContent(doc: ContentDocument): ContentItem {
     return {
       id: doc.id,
@@ -65,6 +106,8 @@ export class DataService implements OnModuleInit {
       previewUrl: doc.previewUrl ?? undefined,
       type: (doc.type as ContentType) ?? 'other',
       lessons: doc.lessons,
+      courseId: doc.courseId?.toString(),
+      sectionId: doc.sectionId?.toString(),
       fileId: doc.fileId ?? undefined,
       fileName: doc.fileName ?? undefined,
       fileType: doc.fileType ?? undefined,
@@ -86,37 +129,96 @@ export class DataService implements OnModuleInit {
     });
   }
 
+  private async ensureSeedCourses() {
+    const count = await this.courseModel.estimatedDocumentCount();
+    if (count > 0) return;
+
+    const course = await this.courseModel.create({ name: 'CPA' });
+    const sectionNames = ['CPA 1', 'CPA 2', 'CPA 3', 'CPA 4', 'CPA 5', 'CPA 6'];
+    await this.sectionModel.insertMany(
+      sectionNames.map((name, index) => ({
+        courseId: course._id,
+        name,
+        order: index + 1,
+      })),
+    );
+  }
+
   private async ensureSeedContent() {
     const count = await this.contentModel.estimatedDocumentCount();
     if (count > 0) return;
 
-    const samples: CreateContentInput[] = [
+    const course = await this.courseModel.findOne({ name: 'CPA' }).exec();
+    if (!course) return;
+    const sections = await this.sectionModel.find({ courseId: course._id }).sort({ order: 1 }).exec();
+    if (sections.length === 0) return;
+
+    const samples: Array<CreateContentInput & { courseId: string; sectionId: string }> = [
       {
-        title: 'Mathematics Form 4',
-        description: 'Complete revision kit with 200+ solved problems',
-        subject: 'Mathematics',
-        price: 500,
+        title: 'CPA Section 1 - Financial Accounting',
+        description: 'Revision kit covering financial statements, accounting standards, and company accounts. Includes worked examples and past paper solutions.',
+        subject: 'CPA',
+        price: 10,
         previewUrl: 'https://www.africau.edu/images/default/sample.pdf',
         type: 'pdf',
-        lessons: 24,
+        lessons: 28,
+        courseId: course._id.toString(),
+        sectionId: sections[0]!._id.toString(),
       },
       {
-        title: 'Chemistry Form 3',
-        description: 'Comprehensive notes and practical questions',
-        subject: 'Chemistry',
-        price: 450,
-        previewUrl: 'https://www.africau.edu/images/default/sample.pdf',
-        type: 'pdf',
-        lessons: 18,
-      },
-      {
-        title: 'Physics Form 4',
-        description: 'Theory and numerical problems with solutions',
-        subject: 'Physics',
-        price: 0,
+        title: 'CPA Section 2 - Management Accounting',
+        description: 'Cost accounting, budgeting, variance analysis, and decision-making. Complete notes and practice questions for Section 2.',
+        subject: 'CPA',
+        price: 10,
         previewUrl: 'https://www.africau.edu/images/default/sample.pdf',
         type: 'pdf',
         lessons: 22,
+        courseId: course._id.toString(),
+        sectionId: sections[1]!._id.toString(),
+      },
+      {
+        title: 'CPA Section 3 - Taxation',
+        description: 'Income tax, VAT, and other taxes. Comprehensive coverage of KRA requirements and tax computations with examples.',
+        subject: 'CPA',
+        price: 10,
+        previewUrl: 'https://www.africau.edu/images/default/sample.pdf',
+        type: 'pdf',
+        lessons: 26,
+        courseId: course._id.toString(),
+        sectionId: sections[2]!._id.toString(),
+      },
+      {
+        title: 'CPA Section 4 - Auditing and Assurance',
+        description: 'Audit planning, evidence, reporting, and professional ethics. Revision kit with case studies and past exam questions.',
+        subject: 'CPA',
+        price: 0,
+        previewUrl: 'https://www.africau.edu/images/default/sample.pdf',
+        type: 'pdf',
+        lessons: 24,
+        courseId: course._id.toString(),
+        sectionId: sections[3]!._id.toString(),
+      },
+      {
+        title: 'CPA Section 5 - Strategic Management',
+        description: 'Corporate strategy, governance, and risk management. Notes and revision questions for Section 5 exams.',
+        subject: 'CPA',
+        price: 10,
+        previewUrl: 'https://www.africau.edu/images/default/sample.pdf',
+        type: 'pdf',
+        lessons: 20,
+        courseId: course._id.toString(),
+        sectionId: sections[4]!._id.toString(),
+      },
+      {
+        title: 'CPA Section 6 - Financial Reporting',
+        description: 'Advanced financial reporting, group accounts, and IFRS. Complete revision kit with worked solutions.',
+        subject: 'CPA',
+        price: 10,
+        previewUrl: 'https://www.africau.edu/images/default/sample.pdf',
+        type: 'pdf',
+        lessons: 30,
+        courseId: course._id.toString(),
+        sectionId: sections[5]!._id.toString(),
       },
     ];
 
@@ -220,6 +322,44 @@ export class DataService implements OnModuleInit {
     return doc ? this.toContent(doc) : null;
   }
 
+  async getCourses(): Promise<CourseItem[]> {
+    const docs = await this.courseModel.find().sort({ createdAt: 1 }).exec();
+    return docs.map((d) => this.toCourse(d));
+  }
+
+  async getCourseById(id: string): Promise<CourseItem | null> {
+    const doc = await this.courseModel.findById(id).exec();
+    return doc ? this.toCourse(doc) : null;
+  }
+
+  async createCourse(name: string): Promise<CourseItem> {
+    const doc = await this.courseModel.create({ name });
+    return this.toCourse(doc);
+  }
+
+  async getSectionsByCourseId(courseId: string): Promise<SectionItem[]> {
+    const docs = await this.sectionModel.find({ courseId }).sort({ order: 1 }).exec();
+    return docs.map((d) => this.toSection(d));
+  }
+
+  async createSection(courseId: string, name: string, order?: number): Promise<SectionItem> {
+    const nextOrder =
+      order ??
+      (await this.sectionModel.countDocuments({ courseId }).exec()) + 1;
+    const doc = await this.sectionModel.create({ courseId, name, order: nextOrder });
+    return this.toSection(doc);
+  }
+
+  async getContentByCourseId(courseId: string): Promise<ContentItem[]> {
+    const docs = await this.contentModel.find({ courseId }).sort({ createdAt: -1 }).exec();
+    return docs.map((d) => this.toContent(d));
+  }
+
+  async getContentBySectionId(sectionId: string): Promise<ContentItem[]> {
+    const docs = await this.contentModel.find({ sectionId }).sort({ createdAt: -1 }).exec();
+    return docs.map((d) => this.toContent(d));
+  }
+
   async createContent(input: CreateContentInput) {
     const doc = await this.contentModel.create({
       title: input.title,
@@ -229,6 +369,8 @@ export class DataService implements OnModuleInit {
       previewUrl: input.previewUrl,
       type: input.type ?? 'other',
       lessons: input.lessons,
+      courseId: input.courseId,
+      sectionId: input.sectionId,
       fileId: input.fileId,
       fileName: input.fileName,
       fileType: input.fileType,
@@ -258,6 +400,8 @@ export class DataService implements OnModuleInit {
           ...(updates.fileName !== undefined ? { fileName: updates.fileName } : {}),
           ...(updates.fileType !== undefined ? { fileType: updates.fileType } : {}),
           ...(updates.fileSize !== undefined ? { fileSize: updates.fileSize } : {}),
+          ...(updates.courseId !== undefined ? { courseId: updates.courseId } : {}),
+          ...(updates.sectionId !== undefined ? { sectionId: updates.sectionId } : {}),
         },
         { new: true },
       )
@@ -298,12 +442,174 @@ export class DataService implements OnModuleInit {
       },
       { new: true },
     );
+    await this.recordPayment(user.id, plan.price, 'subscription', plan.id);
     const subscription: Subscription = {
       planId: plan.id,
       status: 'active',
       expiresAt: expiresAt.toISOString(),
     };
     return subscription;
+  }
+
+  private toAttempt(doc: AttemptDocument): AttemptItem {
+    return {
+      id: doc.id,
+      userId: doc.userId?.toString() ?? '',
+      assessmentId: doc.assessmentId?.toString() ?? '',
+      correctCount: doc.correctCount ?? 0,
+      totalQuestions: doc.totalQuestions ?? 0,
+      scorePercent: doc.scorePercent ?? 0,
+      createdAt: doc.createdAt?.toISOString() ?? new Date().toISOString(),
+      updatedAt: doc.updatedAt?.toISOString() ?? new Date().toISOString(),
+    };
+  }
+
+  async createAttempt(
+    userId: string,
+    assessmentId: string,
+    correctCount: number,
+    totalQuestions: number,
+  ): Promise<AttemptItem> {
+    const scorePercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+    const doc = await this.attemptModel.create({
+      userId,
+      assessmentId,
+      correctCount,
+      totalQuestions,
+      scorePercent,
+    });
+    await this.updateAssessmentAttemptStats(assessmentId);
+    return this.toAttempt(doc);
+  }
+
+  private async updateAssessmentAttemptStats(assessmentId: string): Promise<void> {
+    const attempts = await this.attemptModel.find({ assessmentId }).lean().exec();
+    const count = attempts.length;
+    const avg =
+      count > 0
+        ? Math.round(attempts.reduce((s, a) => s + (a.scorePercent ?? 0), 0) / count).toString() + '%'
+        : '-';
+    await this.assessmentModel
+      .findByIdAndUpdate(assessmentId, { attempts: count, avgScore: avg })
+      .exec();
+  }
+
+  async getAttemptsByAssessmentId(assessmentId: string): Promise<AttemptItem[]> {
+    const docs = await this.attemptModel.find({ assessmentId }).sort({ createdAt: -1 }).exec();
+    return docs.map((d) => this.toAttempt(d));
+  }
+
+  async getAttemptsByUserId(userId: string): Promise<AttemptItem[]> {
+    const docs = await this.attemptModel.find({ userId }).sort({ createdAt: -1 }).exec();
+    return docs.map((d) => this.toAttempt(d));
+  }
+
+  private toPayment(doc: PaymentDocument): PaymentItem {
+    return {
+      id: doc.id,
+      userId: doc.userId?.toString() ?? '',
+      amount: doc.amount ?? 0,
+      currency: doc.currency ?? 'KES',
+      status: doc.status ?? 'completed',
+      type: doc.type ?? 'subscription',
+      planId: doc.planId,
+      createdAt: doc.createdAt?.toISOString() ?? new Date().toISOString(),
+      updatedAt: doc.updatedAt?.toISOString() ?? new Date().toISOString(),
+    };
+  }
+
+  async recordPayment(
+    userId: string,
+    amount: number,
+    type: string,
+    planId?: string,
+  ): Promise<PaymentItem> {
+    const doc = await this.paymentModel.create({
+      userId,
+      amount,
+      currency: 'KES',
+      status: 'completed',
+      type,
+      planId,
+    });
+    return this.toPayment(doc);
+  }
+
+  async getPaymentsForAdmin(limit = 100): Promise<PaymentItem[]> {
+    const docs = await this.paymentModel.find().sort({ createdAt: -1 }).limit(limit).exec();
+    return docs.map((d) => this.toPayment(d));
+  }
+
+  async getRevenueSummary(): Promise<{ total: number; count: number; monthTotal: number }> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const all = await this.paymentModel.find({ status: 'completed' }).lean().exec();
+    const total = all.reduce((s, p) => s + (p.amount ?? 0), 0);
+    const monthPayments = all.filter(
+      (p) => (p as { createdAt?: Date }).createdAt && new Date((p as { createdAt: Date }).createdAt) >= startOfMonth,
+    );
+    const monthTotal = monthPayments.reduce((s, p) => s + (p.amount ?? 0), 0);
+    return { total, count: all.length, monthTotal };
+  }
+
+  async getProgressForAdmin(): Promise<
+    { userId: string; name: string; email: string; attemptsCount: number; avgScorePercent: number; lastAttemptAt: string | null }[]
+  > {
+    const users = await this.userModel.find({ role: 'student' }).lean().exec();
+    const attempts = await this.attemptModel.find().lean().exec();
+    const byUser = new Map<string, { total: number; sum: number; last: Date | null }>();
+    for (const a of attempts) {
+      const uid = (a.userId as { toString: () => string })?.toString?.() ?? (a.userId as unknown as string);
+      if (!byUser.has(uid)) byUser.set(uid, { total: 0, sum: 0, last: null });
+      const rec = byUser.get(uid)!;
+      rec.total += 1;
+      rec.sum += a.scorePercent ?? 0;
+      const createdAt = (a as { createdAt?: Date }).createdAt;
+      if (createdAt && (!rec.last || new Date(createdAt) > rec.last)) rec.last = new Date(createdAt);
+    }
+    return users.map((u) => {
+      const uid = u._id?.toString?.() ?? '';
+      const rec = byUser.get(uid) ?? { total: 0, sum: 0, last: null };
+      const avg = rec.total > 0 ? Math.round(rec.sum / rec.total) : 0;
+      return {
+        userId: uid,
+        name: (u as { name?: string }).name ?? '',
+        email: (u as { email?: string }).email ?? '',
+        attemptsCount: rec.total,
+        avgScorePercent: avg,
+        lastAttemptAt: rec.last ? rec.last.toISOString() : null,
+      };
+    });
+  }
+
+  async getAnalyticsForAdmin(): Promise<{
+    totalUsers: number;
+    totalContent: number;
+    totalAttempts: number;
+    passRatePercent: number;
+    revenueTotal: number;
+    revenueMonth: number;
+    recentAttempts: AttemptItem[];
+  }> {
+    const [userCount, contentCount, attemptDocs, revenue, recentAttempts] = await Promise.all([
+      this.userModel.countDocuments().exec(),
+      this.contentModel.countDocuments().exec(),
+      this.attemptModel.find().lean().exec(),
+      this.getRevenueSummary(),
+      this.attemptModel.find().sort({ createdAt: -1 }).limit(10).exec(),
+    ]);
+    const totalAttempts = attemptDocs.length;
+    const passed = attemptDocs.filter((a) => (a.scorePercent ?? 0) >= 70).length;
+    const passRatePercent = totalAttempts > 0 ? Math.round((passed / totalAttempts) * 100) : 0;
+    return {
+      totalUsers: userCount,
+      totalContent: contentCount,
+      totalAttempts,
+      passRatePercent,
+      revenueTotal: revenue.total,
+      revenueMonth: revenue.monthTotal,
+      recentAttempts: recentAttempts.map((d) => this.toAttempt(d as AttemptDocument)),
+    };
   }
 
   async hasAccessToContent(user: User, contentId: string) {
@@ -320,5 +626,132 @@ export class DataService implements OnModuleInit {
     if (!user.library.length) return [];
     const docs = await this.contentModel.find({ _id: { $in: user.library } }).exec();
     return docs.map((doc) => this.toContent(doc));
+  }
+
+  private toAssessment(doc: AssessmentDocument): AssessmentItem {
+    return {
+      id: doc.id,
+      title: doc.title,
+      courseId: doc.courseId?.toString(),
+      sectionId: doc.sectionId?.toString(),
+      courseName: doc.courseName ?? '',
+      sectionName: doc.sectionName ?? '',
+      questions: doc.questions,
+      timeMinutes: doc.timeMinutes,
+      difficulty: doc.difficulty ?? 'Medium',
+      attempts: doc.attempts ?? 0,
+      avgScore: doc.avgScore ?? '-',
+      createdAt: doc.createdAt?.toISOString() ?? new Date().toISOString(),
+      updatedAt: doc.updatedAt?.toISOString() ?? new Date().toISOString(),
+    };
+  }
+
+  async getAssessments(): Promise<AssessmentItem[]> {
+    const docs = await this.assessmentModel.find().sort({ createdAt: -1 }).exec();
+    return docs.map((d) => this.toAssessment(d));
+  }
+
+  async createAssessment(input: CreateAssessmentInput): Promise<AssessmentItem> {
+    const doc = await this.assessmentModel.create({
+      title: input.title,
+      courseId: input.courseId,
+      sectionId: input.sectionId,
+      courseName: input.courseName ?? '',
+      sectionName: input.sectionName ?? '',
+      questions: input.questions,
+      timeMinutes: input.timeMinutes,
+      difficulty: input.difficulty ?? 'Medium',
+    });
+    return this.toAssessment(doc);
+  }
+
+  async updateAssessment(
+    id: string,
+    updates: Partial<CreateAssessmentInput>,
+  ): Promise<AssessmentItem | null> {
+    const doc = await this.assessmentModel
+      .findByIdAndUpdate(
+        id,
+        {
+          ...(updates.title !== undefined ? { title: updates.title } : {}),
+          ...(updates.courseId !== undefined ? { courseId: updates.courseId } : {}),
+          ...(updates.sectionId !== undefined ? { sectionId: updates.sectionId } : {}),
+          ...(updates.courseName !== undefined ? { courseName: updates.courseName } : {}),
+          ...(updates.sectionName !== undefined ? { sectionName: updates.sectionName } : {}),
+          ...(updates.questions !== undefined ? { questions: updates.questions } : {}),
+          ...(updates.timeMinutes !== undefined ? { timeMinutes: updates.timeMinutes } : {}),
+          ...(updates.difficulty !== undefined ? { difficulty: updates.difficulty } : {}),
+        },
+        { new: true },
+      )
+      .exec();
+    return doc ? this.toAssessment(doc) : null;
+  }
+
+  async deleteAssessment(id: string): Promise<AssessmentItem | null> {
+    const doc = await this.assessmentModel.findByIdAndDelete(id).exec();
+    if (doc) {
+      await this.questionModel.deleteMany({ assessmentId: doc._id }).exec();
+    }
+    return doc ? this.toAssessment(doc) : null;
+  }
+
+  private toQuestion(doc: QuestionDocument): QuestionItem {
+    return {
+      id: doc.id,
+      assessmentId: doc.assessmentId?.toString() ?? '',
+      order: doc.order ?? 0,
+      questionText: doc.questionText,
+      type: (doc.type as 'mcq' | 'true_false') ?? 'mcq',
+      options: doc.options ?? [],
+      correctIndex: doc.correctIndex ?? 0,
+      createdAt: doc.createdAt?.toISOString() ?? new Date().toISOString(),
+      updatedAt: doc.updatedAt?.toISOString() ?? new Date().toISOString(),
+    };
+  }
+
+  async getQuestionsByAssessmentId(assessmentId: string): Promise<QuestionItem[]> {
+    const docs = await this.questionModel.find({ assessmentId }).sort({ order: 1 }).exec();
+    return docs.map((d) => this.toQuestion(d));
+  }
+
+  async createQuestion(input: CreateQuestionInput): Promise<QuestionItem> {
+    const order =
+      input.order ??
+      (await this.questionModel.countDocuments({ assessmentId: input.assessmentId }).exec()) + 1;
+    const doc = await this.questionModel.create({
+      assessmentId: input.assessmentId,
+      order,
+      questionText: input.questionText,
+      type: input.type ?? 'mcq',
+      options: input.options ?? [],
+      correctIndex: input.correctIndex ?? 0,
+    });
+    return this.toQuestion(doc);
+  }
+
+  async updateQuestion(
+    id: string,
+    updates: Partial<Pick<CreateQuestionInput, 'questionText' | 'type' | 'options' | 'correctIndex' | 'order'>>,
+  ): Promise<QuestionItem | null> {
+    const doc = await this.questionModel
+      .findByIdAndUpdate(
+        id,
+        {
+          ...(updates.questionText !== undefined ? { questionText: updates.questionText } : {}),
+          ...(updates.type !== undefined ? { type: updates.type } : {}),
+          ...(updates.options !== undefined ? { options: updates.options } : {}),
+          ...(updates.correctIndex !== undefined ? { correctIndex: updates.correctIndex } : {}),
+          ...(updates.order !== undefined ? { order: updates.order } : {}),
+        },
+        { new: true },
+      )
+      .exec();
+    return doc ? this.toQuestion(doc) : null;
+  }
+
+  async deleteQuestion(id: string): Promise<QuestionItem | null> {
+    const doc = await this.questionModel.findByIdAndDelete(id).exec();
+    return doc ? this.toQuestion(doc) : null;
   }
 }

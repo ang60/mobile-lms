@@ -8,14 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { contentApi, type ContentItem, type CreateContentDto } from "@/lib/api/content";
-import { Edit, Eye, FileText, Filter, FolderGit2, Plus, Search, Trash2 } from "lucide-react";
+import { Grid3X3, List, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 export default function ContentPage() {
   const [content, setContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [courseFilter, setCourseFilter] = useState("All");
+  const [sectionFilter, setSectionFilter] = useState("All");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -49,6 +53,10 @@ export default function ContentPage() {
     }
   };
 
+  useEffect(() => {
+    loadContent();
+  }, []);
+
   const getToken = (): string | undefined => {
     if (typeof window === "undefined") return undefined;
     return localStorage.getItem("token") || undefined;
@@ -74,7 +82,7 @@ export default function ContentPage() {
         title: formData.title,
         description: formData.description,
         price: formData.price,
-        subject: "General", // Default subject
+        subject: "CPA", // Course
         lessons: 1, // Default lessons
         type: selectedFile.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'epub',
         // previewUrl is optional, don't include if empty
@@ -85,8 +93,8 @@ export default function ContentPage() {
       setIsCreateOpen(false);
       resetForm();
       loadContent();
-    } catch (error: any) {
-      const errorMessage = error?.message || "Failed to upload content";
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload content";
       toast.error(errorMessage);
       console.error("Upload error:", error);
       
@@ -176,136 +184,210 @@ export default function ContentPage() {
     setIsDeleteOpen(true);
   };
 
-  const filteredContent = content.filter((item) =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.subject.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+  const courseOptions = ["All", "CPA"];
+  const sectionOptions = ["All", "Section 1", "Section 2", "Section 3", "Section 4", "Section 5", "Section 6"];
+  const getSectionFromTitle = (title: string): string => {
+    const m = title.match(/CPA Section (\d)/i);
+    return m ? `Section ${m[1]}` : "—";
   };
+  const filteredContent = content.filter((item) => {
+    const matchesSearch =
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.subject.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCourse = courseFilter === "All" || item.subject === courseFilter;
+    const itemSection = getSectionFromTitle(item.title);
+    const matchesSection = sectionFilter === "All" || itemSection === sectionFilter;
+    return matchesSearch && matchesCourse && matchesSection;
+  });
+
+  const getInitials = (title: string) =>
+    title
+      .split(/\s+/)
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900">
-            Content Operations
-          </h2>
-          <p className="mt-2 max-w-2xl text-base font-medium text-slate-600">
-            Manage modules, upload new files, and monitor the health of the CPA
-            curriculum in one place. Streamlined for publishers and academic
-            leads.
+          <h2 className="text-2xl font-bold text-slate-900">All Materials</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Manage all learning content and materials.
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="gap-2">
-            <FolderGit2 className="size-4" />
-            Version history
-          </Button>
-          <Button className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={() => setIsCreateOpen(true)}>
-            <Plus className="size-4" />
-            Upload Content
-          </Button>
-        </div>
+        <Link
+          href="/upload-new"
+          className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+        >
+          <Plus className="size-4" />
+          Upload New
+        </Link>
       </header>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-4 md:flex-row md:items-center md:justify-between">
-          <div className="relative md:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-            <Input
-              type="search"
-              placeholder="Search modules, notes, mock exams..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+        <div className="border-b border-slate-200 px-6 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Course</span>
+            {courseOptions.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCourseFilter(c)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                  courseFilter === c ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+            <span className="ml-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Section</span>
+            {sectionOptions.map((s) => (
+              <button
+                key={s}
+                onClick={() => setSectionFilter(s)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                  sectionFilter === s ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm">
-              <Filter className="size-4 mr-2" />
-              Filter
-            </Button>
-            <Button variant="outline" size="sm">
-              Bulk actions
-            </Button>
+          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+              <Input
+                type="search"
+                placeholder="Search materials..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`rounded-lg border p-2 ${viewMode === "grid" ? "border-slate-800 bg-slate-100" : "border-slate-200"}`}
+              >
+                <Grid3X3 className="size-4 text-slate-600" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`rounded-lg border p-2 ${viewMode === "list" ? "border-slate-800 bg-slate-100" : "border-slate-200"}`}
+              >
+                <List className="size-4 text-slate-600" />
+              </button>
+            </div>
           </div>
         </div>
-        
+
         {loading ? (
           <div className="p-12 text-center text-slate-500">Loading content...</div>
         ) : filteredContent.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
-            {searchQuery ? "No content found matching your search." : "No content available. Upload your first content item."}
+            {searchQuery || courseFilter !== "All" || sectionFilter !== "All"
+              ? "No content found matching your filters."
+              : "No content available. Upload your first content item."}
+          </div>
+        ) : viewMode === "list" ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="px-6 py-3">Title</th>
+                  <th className="px-6 py-3">Course</th>
+                  <th className="px-6 py-3">Section</th>
+                  <th className="px-6 py-3">Pages</th>
+                  <th className="px-6 py-3">Price</th>
+                  <th className="px-6 py-3">Views</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredContent.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-xs font-bold text-slate-700">
+                          {getInitials(item.title)}
+                        </div>
+                        <div>
+                          <span className="font-medium text-slate-900">{item.title}</span>
+                          <span className="ml-2 text-xs text-slate-500">★4.0</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-3">
+                      <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                        {item.subject}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                        {getSectionFromTitle(item.title)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-slate-600">{item.lessons}</td>
+                    <td className="px-6 py-3 text-slate-600">KES {item.price.toLocaleString()}</td>
+                    <td className="px-6 py-3 text-slate-600">—</td>
+                    <td className="px-6 py-3">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-600">
+                        <span className="size-1.5 rounded-full bg-emerald-500" />
+                        Live
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="outline" size="sm" onClick={() => openEditDialog(item)}>
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => openDeleteDialog(item)}>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
-          <ul className="divide-y divide-slate-200">
+          <ul className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredContent.map((item) => (
               <li
                 key={item.id}
-                className="flex flex-col gap-4 px-6 py-4 md:flex-row md:items-center md:justify-between hover:bg-slate-50 transition-colors"
+                className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-colors hover:bg-slate-50"
               >
-                <div className="flex items-start gap-4">
-                  <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
-                    <FileText className="size-5" />
+                <div className="flex items-start gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-xs font-bold text-slate-700">
+                    {getInitials(item.title)}
                   </div>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900">
-                        {item.title}
-                      </h3>
-                      <span className="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide bg-emerald-100 text-emerald-700">
-                        Published
-                      </span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500">
-                      <span>{item.lessons} lessons</span>
-                      <span>{item.subject}</span>
-                      <span>KES {item.price.toLocaleString()}</span>
-                      <span>Updated {formatDate(item.updatedAt)}</span>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-medium text-slate-900 truncate">{item.title}</h3>
+                    <p className="text-xs text-slate-500">{item.subject} · {getSectionFromTitle(item.title)} · KES {item.price.toLocaleString()}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEditDialog(item)}
-                  >
-                    <Edit className="size-4 mr-1" />
+                <div className="mt-3 flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => openEditDialog(item)}>
                     Edit
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      if (item.previewUrl) {
-                        window.open(item.previewUrl, '_blank', 'noopener,noreferrer');
-                      } else {
-                        toast.error("No preview URL available for this content");
-                      }
-                    }}
-                  >
-                    <Eye className="size-4 mr-1" />
-                    Preview
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openDeleteDialog(item)}
-                  >
-                    <Trash2 className="size-4 mr-1" />
-                    Delete
+                  <Button variant="outline" size="sm" onClick={() => openDeleteDialog(item)}>
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
               </li>
             ))}
           </ul>
+        )}
+        {!loading && filteredContent.length > 0 && (
+          <div className="flex items-center justify-between border-t border-slate-200 px-6 py-3 text-sm text-slate-500">
+            <span>Showing {filteredContent.length} of {content.length} materials</span>
+            <div className="flex gap-1">
+              <button className="rounded border border-slate-200 px-2 py-1 text-slate-600 hover:bg-slate-50">1</button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -404,11 +486,12 @@ export default function ContentPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-subject">Subject *</Label>
+                <Label htmlFor="edit-subject">Course *</Label>
                 <Input
                   id="edit-subject"
                   value={editFormData.subject}
                   onChange={(e) => setEditFormData({ ...editFormData, subject: e.target.value })}
+                  placeholder="e.g. CPA"
                 />
               </div>
               <div className="space-y-2">

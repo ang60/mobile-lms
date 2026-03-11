@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Res,
   UnauthorizedException,
   UploadedFile,
@@ -38,8 +39,11 @@ export class ContentController {
   ) {}
 
   @Get()
-  list() {
-    return this.contentService.list();
+  list(
+    @Query('courseId') courseId?: string,
+    @Query('sectionId') sectionId?: string,
+  ) {
+    return this.contentService.list(courseId, sectionId);
   }
 
   @Get(':id')

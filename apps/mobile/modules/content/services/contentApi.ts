@@ -1,4 +1,4 @@
-import { apiFetch } from '@/utils/api/client';
+import { apiFetch, getBaseUrl } from '@/utils/api/client';
 
 export type ContentItem = {
   id: string;
@@ -9,6 +9,8 @@ export type ContentItem = {
   type: 'pdf' | 'epub';
   lessons: number;
   previewUrl?: string;
+  courseId?: string;
+  sectionId?: string;
   fileId?: string;
   fileName?: string;
   fileType?: string;
@@ -17,12 +19,28 @@ export type ContentItem = {
   updatedAt?: string;
 };
 
+type ListParams = {
+  token?: string | null;
+  courseId?: string;
+  sectionId?: string;
+};
+
 export const contentApi = {
-  list: (token?: string | null): Promise<ContentItem[]> =>
-    apiFetch<ContentItem[]>('/content', {
+  list: (tokenOrParams?: string | null | ListParams): Promise<ContentItem[]> => {
+    const params: ListParams =
+      typeof tokenOrParams === 'string' || tokenOrParams == null
+        ? { token: tokenOrParams ?? undefined }
+        : tokenOrParams;
+    const search = new URLSearchParams();
+    if (params.courseId) search.set('courseId', params.courseId);
+    if (params.sectionId) search.set('sectionId', params.sectionId);
+    const qs = search.toString();
+    const path = qs ? `/content?${qs}` : '/content';
+    return apiFetch<ContentItem[]>(path, {
       method: 'GET',
-      token: token || undefined,
-    }),
+      token: params.token ?? undefined,
+    });
+  },
 
   get: (id: string, token?: string | null): Promise<ContentItem> =>
     apiFetch<ContentItem>(`/content/${id}`, {
@@ -31,8 +49,7 @@ export const contentApi = {
     }),
 
   download: async (id: string, token: string): Promise<Blob> => {
-    const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-    const url = `${BASE_URL}/content/${id}/file`;
+    const url = `${getBaseUrl()}/content/${id}/file`;
 
     const response = await fetch(url, {
       method: 'GET',
